@@ -11,6 +11,7 @@ import 'package:untitled/features/quiz/quiz_screen.dart';
 import 'package:untitled/features/study/listening_screen.dart';
 import 'package:untitled/features/home/widgets/catalog_screen.dart';
 import 'package:untitled/features/home/widgets/placement_test_screen.dart';
+import 'package:untitled/features/study/due_words_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Repository? externalRepository;
@@ -78,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshDue() async {
+    if (!mounted) return;
     setState(() {
       loadingDue = true;
     });
@@ -85,12 +87,14 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         final repo = repository as FirebaseRepository;
         final list = await repo.dueWordsAsync(limit: dailyGoal);
+        if (!mounted) return;
         setState(() {
           dueCache = list;
           loadingDue = false;
         });
       } on FirebaseException {
         // İzin hatalarında çevrimdışı moda düşmeyelim; sadece listeyi boşaltalım
+        if (!mounted) return;
         setState(() {
           dueCache = const [];
           loadingDue = false;
@@ -98,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } else {
       final list = repository.dueWords(limit: dailyGoal);
+      if (!mounted) return;
       setState(() {
         dueCache = list;
         loadingDue = false;
@@ -139,6 +144,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                             await _refreshDue();
                           },
+                    onViewDue: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DueWordsScreen(repository: repository),
+                        ),
+                      );
+                      await _refreshDue();
+                    },
                   ),
                   const SizedBox(height: 12),
                   _FeaturedCategories(
@@ -235,7 +248,8 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HeaderCard extends StatelessWidget {
   final int dueCount;
   final VoidCallback? onStart;
-  const _HeaderCard({required this.dueCount, required this.onStart});
+  final VoidCallback? onViewDue;
+  const _HeaderCard({required this.dueCount, required this.onStart, this.onViewDue});
 
   @override
   Widget build(BuildContext context) {
@@ -271,9 +285,10 @@ class _HeaderCard extends StatelessWidget {
                   children: [
                     Expanded(child: ElevatedButton(onPressed: onStart, child: const Text('Çalışmaya Başla'))),
                     const SizedBox(width: 8),
-                    FilledButton.tonal(
-                      onPressed: onStart,
-                      child: const Icon(Icons.play_arrow_rounded),
+                    OutlinedButton.icon(
+                      onPressed: onViewDue,
+                      icon: const Icon(Icons.list),
+                      label: const Text('Detay'),
                     ),
                   ],
                 ),
@@ -364,10 +379,21 @@ class _ModeChip extends StatelessWidget {
               ),
               border: Border.all(color: scheme.outlineVariant),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [Icon(icon, size: 18), const SizedBox(width: 6), Text(label)],
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

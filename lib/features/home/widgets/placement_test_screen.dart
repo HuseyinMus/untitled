@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:untitled/data/models/word.dart';
+import 'package:untitled/features/home/widgets/placement_result_screen.dart';
 
 class PlacementTestScreen extends StatefulWidget {
   final List<WordItem> pool;
@@ -38,7 +39,15 @@ class _PlacementTestScreenState extends State<PlacementTestScreen> {
               : ratio >= 0.5
                   ? 'B1'
                   : 'A2';
-      Navigator.of(context).pop({'score': score, 'suggestedLevel': level});
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => PlacementResultScreen(
+            score: score,
+            total: questions.length,
+            suggestedLevel: level,
+          ),
+        ),
+      );
       return;
     }
     current = questions[index++];

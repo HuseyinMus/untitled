@@ -14,6 +14,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Repository repository = InMemoryRepository();
   String? selectedLevel;
   String? selectedPos;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   @override
   void didChangeDependencies() {
@@ -23,9 +25,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cats = repository.availableCategories();
     final levels = ['Tümü', ...repository.availableLevels()];
     final pos = ['Tümü', 'noun', 'verb', 'adjective', 'adverb'];
+    final allCats = repository.availableCategories();
+    final cats = allCats
+        .where((c) => _query.isEmpty || c.toLowerCase().contains(_query.toLowerCase()))
+        .toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('Kategoriler')),
       body: CustomScrollView(
@@ -36,46 +41,72 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: selectedLevel ?? 'Tümü',
-                        decoration: const InputDecoration(labelText: 'Seviye'),
-                        items: levels.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                        onChanged: (v) => setState(() => selectedLevel = v == 'Tümü' ? null : v),
-                      ),
+                  TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Kategori ara',
+                      prefixIcon: Icon(Icons.search),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: selectedPos ?? 'Tümü',
-                        decoration: const InputDecoration(labelText: 'Kelime Türü'),
-                        items: pos.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                        onChanged: (v) => setState(() => selectedPos = v == 'Tümü' ? null : v),
-                      ),
-                    ),
-                  ]),
+                    onChanged: (v) => setState(() => _query = v.trim()),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Seviyeler', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...levels.map((e) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(e),
+                                selected: (selectedLevel ?? 'Tümü') == e,
+                                onSelected: (_) => setState(() => selectedLevel = e == 'Tümü' ? null : e),
+                              ),
+                            )),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Kelime Türleri', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...pos.map((e) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(e),
+                                selected: (selectedPos ?? 'Tümü') == e,
+                                onSelected: (_) => setState(() => selectedPos = e == 'Tümü' ? null : e),
+                              ),
+                            )),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text('Sınav Listeleri', style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
             ),
           ),
           SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 280,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
               childAspectRatio: 1.1,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, i) {
                 final label = i < cats.length ? cats[i] : null;
                 if (label == null) return const SizedBox.shrink();
+                final int count = _estimateCount(label);
                 return _CategoryCard(
                   title: label,
-                  subtitle: 'Seçili seviyeye uygun kelimeler',
-                  count: 0,
+                  subtitle: 'Seçili filtrelere uygun kelimeler',
+                  count: count,
                   onStart: () {
                     selectedFilterNotifier.value = selectedFilterNotifier.value.copyWith(category: label, level: selectedLevel);
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label seçildi')));
@@ -89,6 +120,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
     );
   }
+
+  int _estimateCount(String category) {
+    // Basit tahmin: kategoriye ait öğeleri alıp seçili seviye/pos ile filtrele
+    List items = repository.byCategory(category);
+    if (selectedLevel != null) {
+      items = items.where((w) => (w.level ?? '') == selectedLevel).toList();
+    }
+    if (selectedPos != null) {
+      items = items.where((w) => (w.partOfSpeech) == selectedPos).toList();
+    }
+    return items.length;
+  }
 }
 
 class _CategoryCard extends StatelessWidget {
@@ -101,40 +144,90 @@ class _CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-            const Spacer(),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onStart,
-                    child: const Text('Başla'),
+    final icon = _iconFor(title);
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onStart,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [scheme.secondaryContainer, scheme.tertiaryContainer],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: scheme.surface.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(icon, size: 18),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: scheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: scheme.surface.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.menu_book, size: 12),
+                        const SizedBox(width: 3),
+                        Text('$count'),
+                      ],
+                    ),
                   ),
-                  child: Text('$count'),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonal(
+                  onPressed: onStart,
+                  child: const Text('Başla'),
                 ),
-              ],
-            )
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+IconData _iconFor(String title) {
+  final t = title.toLowerCase();
+  if (t.contains('ielts')) return Icons.public;
+  if (t.contains('toefl')) return Icons.school;
+  if (t.contains('sat')) return Icons.auto_awesome;
+  if (t.contains('phrasal')) return Icons.link;
+  if (t.contains('academic')) return Icons.menu_book;
+  return Icons.category;
 }
 
 

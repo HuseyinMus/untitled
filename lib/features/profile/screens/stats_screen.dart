@@ -91,22 +91,25 @@ class DailyBarChart extends StatelessWidget {
                   const Text('Günlük Özet (son 14)'),
                   const SizedBox(height: 8),
                   Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        for (final e in items) ...[
-                          _Bar(
-                            height: maxH * (((asInt(e['correct']) + asInt(e['wrong'])) == 0
-                                ? 0.0
-                                : (asInt(e['correct']) + asInt(e['wrong'])) / maxVal)),
-                            correctRatio: ((asInt(e['correct']) + asInt(e['wrong'])) == 0)
-                                ? 0.0
-                                : (asInt(e['correct']) / (asInt(e['correct']) + asInt(e['wrong']))),
-                            width: barW,
-                          ),
-                          SizedBox(width: gap),
-                        ]
-                      ],
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          for (final e in items) ...[
+                            _Bar(
+                              height: maxH * (((asInt(e['correct']) + asInt(e['wrong'])) == 0
+                                  ? 0.0
+                                  : (asInt(e['correct']) + asInt(e['wrong'])) / maxVal)),
+                              correctRatio: ((asInt(e['correct']) + asInt(e['wrong'])) == 0)
+                                  ? 0.0
+                                  : (asInt(e['correct']) / (asInt(e['correct']) + asInt(e['wrong']))),
+                              width: barW,
+                            ),
+                            SizedBox(width: gap),
+                          ]
+                        ],
+                      ),
                     ),
                   ),
                 ],
