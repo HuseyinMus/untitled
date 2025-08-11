@@ -79,11 +79,19 @@ class _QuizScreenState extends State<QuizScreen> {
     final isCorrect = selected.id == correct!.id;
     if (isCorrect) {
       score += 10;
-      // SRS puanını iyileştir
+      // Çoktan seçmeli doğru cevap için "good" yerine kolay sorularda "easy"e terfi ettirelim
+      final ReviewGrade grade = pool.length <= 4 ? ReviewGrade.easy : ReviewGrade.good;
       if (widget.repository is FirebaseRepository) {
-        await (widget.repository as FirebaseRepository).applyReviewAsync(correct!.id, ReviewGrade.good);
+        await (widget.repository as FirebaseRepository).applyReviewAsync(correct!.id, grade);
       } else {
-        widget.repository.applyReview(correct!.id, ReviewGrade.good);
+        widget.repository.applyReview(correct!.id, grade);
+      }
+    } else {
+      // Yanlış cevapta "again" olarak işaretleyelim
+      if (widget.repository is FirebaseRepository) {
+        await (widget.repository as FirebaseRepository).applyReviewAsync(correct!.id, ReviewGrade.again);
+      } else {
+        widget.repository.applyReview(correct!.id, ReviewGrade.again);
       }
     }
     await StatsRepository.recordQuizAnswer(isCorrect: isCorrect);

@@ -6,6 +6,7 @@ class UserWordState {
   final DateTime nextReviewAt;
   final int correctCount;
   final int wrongCount;
+  // İleride raporlama için lapse sayısı kolay erişim (srsState içinde de tutuluyor)
 
   const UserWordState({
     required this.wordId,

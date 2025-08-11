@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:untitled/data/repositories/in_memory_repository.dart';
 import 'package:untitled/data/repositories/repository.dart';
+// removed unused selectedFilterNotifier import
 import 'package:untitled/state/app_state.dart';
+import 'package:untitled/features/study/study_hub_screen.dart';
 import 'package:untitled/core/firebase/firebase_initializer.dart';
 import 'package:untitled/data/repositories/firebase_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -166,8 +168,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   subtitle: 'Seçili filtrelere uygun kelimeler',
                   count: count,
                   onStart: () {
-                    selectedFilterNotifier.value = selectedFilterNotifier.value.copyWith(category: label, level: selectedLevel);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label seçildi')));
+                    // Çalış sayfası için filtreyi ayarla ve StudyHub'a yönlendir
+                    selectedFilterNotifier.value = selectedFilterNotifier.value.copyWith(
+                      category: label,
+                      level: selectedLevel,
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => StudyHubScreen(repository: repository),
+                      ),
+                    );
                   },
                 );
               },

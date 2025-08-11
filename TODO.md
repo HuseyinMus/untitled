@@ -19,7 +19,13 @@
 - [ ] Uygulama loglama & crash raporlama stratejisi.
 
 ### 2) Veri ve Senkronizasyon
-- [ ] Repository genişletmeleri: Firebase tabanlı kalıcı repository’ler (kelimeler, kullanıcı listeleri, istatistikler) – okuma/yazma akışları.
+- [ ] Repository genişletmeleri: Firebase tabanlı kalıcı repository’ler (okuma/yazma akışları)
+  - [x] Katalog okuma (`FirebaseRepository.loadCatalogOnce`)
+  - [x] Due kelime seçimi (`FirebaseRepository.dueWordsAsync`)
+  - [x] İnceleme yazma / SRS güncelleme (`FirebaseRepository.applyReviewAsync`)
+  - [x] Kullanıcı listeleri: kelime ekle/çıkar ve sayaç güncelleme (`UserListsRepository.addWord/removeWord`)
+  - [x] İstatistikler: quiz/çalışma kayıtları ve streak hesabı (`StatsRepository.recordQuizAnswer/recordStudyReview`)
+  - [x] Liderlik tablosu senkronu ve listeleme (`_syncLeaderboard`, `getLeaderboardTop`)
 - [ ] Offline-first: Hive entegrasyonu ve senkronizasyon stratejisi (onay sonrası paket kurulumu).
 - [ ] Çakışma çözümü ve basit versiyonlama (client timestamp vs server timestamp).
 - [ ] Model doğrulama ve serileştirme (gerekirse `json_serializable`/`freezed`) – onay sonrası kurulum.
@@ -32,10 +38,16 @@
 - [x] Admin Paneli: JSON içe/dışa aktarma (toplu yükleme/indirme).
 - [ ] Quiz: soru türleri genişletme (eşleştirme, boşluk doldurma), süre/puanlama, adaptif zorluk.
 - [ ] Dinleme modu – TTS ve örnek sesler (yerel/uzak), önbellekleme.
+  - [x] Temel TTS ile dinleme ekranı (EN/TR)
+  - [ ] Örnek ses dosyaları ve önbellekleme
+  - [ ] Oynatma listesi/otomatik akış
 - [ ] Görsel eşleştirme modu.
 - [ ] Gamification: XP, seviye, rozet, günlük görevler, seri (streak) iyileştirmeleri.
 - [ ] Kullanıcı kelime listeleri: paylaşma/dışa aktarma, sıralama/filtreleme, batch işlemler.
-- [ ] Liderlik tablosu: ülke filtresi, arkadaşlar sekmesi.
+- [ ] Liderlik tablosu
+  - [x] Temel listeleme (top XP)
+  - [ ] Ülke filtresi
+  - [ ] Arkadaşlar sekmesi
 
 ### 4) Bildirimler ve Etkileşim
 - [ ] FCM entegrasyonu: kullanıcıya özel bildiriler (hedef hatırlatma, streak).
