@@ -127,24 +127,65 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     if (!_isAdmin) return;
     try {
       setState(() { writing = true; error = null; });
-      final dynamic decoded = jsonDecode(jsonText);
-      if (decoded is! List) {
-        setState(() => error = 'JSON bir dizi (array) olmalı.');
+      // 1) Önce standart JSON array bekle
+      List<dynamic>? asList;
+      try {
+        final dynamic decoded = jsonDecode(jsonText);
+        if (decoded is List) {
+          asList = decoded;
+        } else if (decoded is Map && decoded['items'] is List) {
+          asList = List<dynamic>.from(decoded['items'] as List);
+        }
+      } catch (_) {/* pas geç */}
+
+      // 2) NDJSON (satır başına bir JSON obje) desteği
+      if (asList == null) {
+        final lines = jsonText.split('\n');
+        final parsed = <dynamic>[];
+        for (final raw in lines) {
+          final line = raw.trim();
+          if (line.isEmpty) continue;
+          try {
+            final obj = jsonDecode(line);
+            parsed.add(obj);
+          } catch (_) {/* geçersiz satırı yoksay */}
+        }
+        if (parsed.isNotEmpty) {
+          asList = parsed;
+        }
+      }
+
+      if (asList == null) {
+        setState(() => error = 'Geçersiz JSON. Lütfen bir JSON dizi ([]) ya da NDJSON (her satır bir obje) girin.');
         return;
       }
+
       final List<Map<String, dynamic>> items = [];
-      for (final e in decoded) {
-        if (e is Map<String, dynamic>) {
-          final enV = (e['en'] ?? e['english'] ?? '').toString().trim();
-          final trV = (e['tr'] ?? e['turkish'] ?? '').toString().trim();
-          final posV = (e['pos'] ?? e['partOfSpeech'] ?? '').toString().trim();
-          final exV = (e['example'] ?? '').toString().trim();
-          final lvlV = (e['level'] ?? '').toString().trim();
-          final mnemV = (e['mnemonic'] ?? '').toString().trim();
-          final catsV = e['categories'];
-          final List<String> cats = catsV is List ? catsV.map((x) => x.toString()).toList() : <String>[];
+      for (final e in asList) {
+        if (e is Map) {
+          final m = Map<String, dynamic>.from(e as Map);
+          final enV = (m['en'] ?? m['english'] ?? '').toString().trim();
+          final trV = (m['tr'] ?? m['turkish'] ?? '').toString().trim();
           if (enV.isEmpty || trV.isEmpty) continue;
-          items.add({
+          final posV = (m['pos'] ?? m['partOfSpeech'] ?? '').toString().trim();
+          final exV = (m['example'] ?? '').toString().trim();
+          final lvlV = (m['level'] ?? '').toString().trim();
+          final mnemV = (m['mnemonic'] ?? '').toString().trim();
+          // Kategoriler: array ya da virgüllü string desteği
+          final catsV = m['categories'];
+          List<String> cats = <String>[];
+          if (catsV is List) {
+            cats = catsV.map((x) => x.toString().trim()).where((x) => x.isNotEmpty).toList();
+          } else if (catsV is String) {
+            cats = catsV
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          }
+          // İstersen id verisiyle upsert
+          final String? id = (m['id']?.toString().trim().isEmpty ?? true) ? null : m['id'].toString().trim();
+          final map = <String, dynamic>{
             'en': enV,
             'tr': trV,
             'pos': posV,
@@ -153,7 +194,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             'level': lvlV,
             'mnemonic': mnemV.isEmpty ? null : mnemV,
             'createdAt': FieldValue.serverTimestamp(),
-          });
+          };
+          if (id != null) map['__id'] = id; // geçici anahtar (doc id için)
+          items.add(map);
         }
       }
       if (items.isEmpty) {
@@ -167,8 +210,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         final end = (i + chunkSize < items.length) ? i + chunkSize : items.length;
         final slice = items.sublist(i, end);
         for (final data in slice) {
-          final doc = FirebaseFirestore.instance.collection('catalog_words').doc();
-          batch.set(doc, data, SetOptions(merge: true));
+          final Map<String, dynamic> m = Map<String, dynamic>.from(data);
+          final String? explicitId = (m.remove('__id') as String?);
+          final col = FirebaseFirestore.instance.collection('catalog_words');
+          final doc = explicitId == null ? col.doc() : col.doc(explicitId);
+          batch.set(doc, m, SetOptions(merge: true));
         }
         await batch.commit();
       }

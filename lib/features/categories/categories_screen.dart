@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:untitled/data/repositories/in_memory_repository.dart';
 import 'package:untitled/data/repositories/repository.dart';
 import 'package:untitled/state/app_state.dart';
+import 'package:untitled/core/firebase/firebase_initializer.dart';
+import 'package:untitled/data/repositories/firebase_repository.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({super.key});
+  final Repository? externalRepository;
+  const CategoriesScreen({super.key, this.externalRepository});
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -16,6 +21,49 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   String? selectedPos;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  bool _loading = true;
+  bool _firebaseReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.externalRepository != null) {
+      repository = widget.externalRepository!;
+      _loading = false;
+      _firebaseReady = repository is FirebaseRepository;
+    } else {
+      _setupRepository();
+    }
+  }
+
+  Future<void> _setupRepository() async {
+    final ok = await initializeFirebaseSafely();
+    if (!mounted) return;
+    if (ok) {
+      try {
+        final auth = FirebaseAuth.instance;
+        if (auth.currentUser == null) {
+          await auth.signInAnonymously();
+        }
+        final repo = FirebaseRepository(FirebaseFirestore.instance, auth);
+        await repo.loadCatalogOnce();
+        if (!mounted) return;
+        setState(() {
+          repository = repo;
+          _firebaseReady = true;
+          _loading = false;
+        });
+        return;
+      } catch (_) {
+        // fallthrough to in-memory
+      }
+    }
+    setState(() {
+      repository = InMemoryRepository();
+      _firebaseReady = false;
+      _loading = false;
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -33,7 +81,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         .toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('Kategoriler')),
-      body: CustomScrollView(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -41,6 +91,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                      if (!_firebaseReady)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Offline mod (Firebase bağlı değil) — in-memory katalog',
+                            style: TextStyle(color: Theme.of(context).colorScheme.error),
+                          ),
+                        ),
                   TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(

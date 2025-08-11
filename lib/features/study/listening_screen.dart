@@ -3,8 +3,10 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:untitled/data/repositories/repository.dart';
 
 class ListeningScreen extends StatefulWidget {
-  final Repository? repository;
-  const ListeningScreen({super.key, this.repository});
+  final Repository repository;
+  final String? selectedCategory;
+  final String? selectedLevel;
+  const ListeningScreen({super.key, required this.repository, this.selectedCategory, this.selectedLevel});
 
   @override
   State<ListeningScreen> createState() => _ListeningScreenState();
@@ -27,8 +29,11 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = widget.repository;
-    final items = repo?.catalog ?? const [];
+    final items = widget.repository.catalog.where((w) {
+      if (widget.selectedCategory != null && !w.categories.contains(widget.selectedCategory)) return false;
+      if (widget.selectedLevel != null && (w.level ?? '') != widget.selectedLevel) return false;
+      return true;
+    }).toList(growable: false);
     final word = items.isEmpty ? null : items[current % items.length];
     return Scaffold(
       appBar: AppBar(title: const Text('Dinleme')),

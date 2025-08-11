@@ -64,7 +64,11 @@ class StudyHubScreen extends StatelessWidget {
                         ? null
                         : () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => QuizScreen(repository: repository),
+                                builder: (_) => QuizScreen(
+                                  repository: repository,
+                                  selectedCategory: selCategory,
+                                  selectedLevel: selLevel,
+                                ),
                               ),
                             ),
                   ),
@@ -75,7 +79,11 @@ class StudyHubScreen extends StatelessWidget {
                         ? null
                         : () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => ListeningScreen(repository: repository),
+                                builder: (_) => ListeningScreen(
+                                  repository: repository,
+                                  selectedCategory: selCategory,
+                                  selectedLevel: selLevel,
+                                ),
                               ),
                             ),
                   ),

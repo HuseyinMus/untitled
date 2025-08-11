@@ -211,13 +211,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   _ModesRow(onOpenQuiz: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => QuizScreen(repository: repository),
+                        builder: (_) => QuizScreen(
+                          repository: repository,
+                          selectedCategory: selectedCategory,
+                          selectedLevel: selectedLevel,
+                        ),
                       ),
                     );
                   }, onOpenListening: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => ListeningScreen(repository: repository),
+                        builder: (_) => ListeningScreen(
+                          repository: repository,
+                          selectedCategory: selectedCategory,
+                          selectedLevel: selectedLevel,
+                        ),
                       ),
                     );
                   }),

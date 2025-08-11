@@ -5,6 +5,10 @@ import 'package:untitled/data/repositories/in_memory_repository.dart';
 import 'package:untitled/data/repositories/repository.dart';
 import 'package:untitled/features/categories/categories_screen.dart';
 import 'package:untitled/features/study/study_hub_screen.dart';
+import 'package:untitled/core/firebase/firebase_initializer.dart';
+import 'package:untitled/data/repositories/firebase_repository.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ShellScreen extends StatefulWidget {
   const ShellScreen({super.key});
@@ -15,14 +19,49 @@ class ShellScreen extends StatefulWidget {
 
 class _ShellScreenState extends State<ShellScreen> {
   int index = 0;
-  final Repository quizRepo = InMemoryRepository();
+  Repository repository = InMemoryRepository();
+  bool firebaseReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupRepository();
+  }
+
+  Future<void> _setupRepository() async {
+    final ok = await initializeFirebaseSafely();
+    if (!mounted) return;
+    if (ok) {
+      try {
+        final auth = FirebaseAuth.instance;
+        if (auth.currentUser == null) {
+          await auth.signInAnonymously();
+        }
+        final repo = FirebaseRepository(FirebaseFirestore.instance, auth);
+        await repo.loadCatalogOnce();
+        if (!mounted) return;
+        setState(() {
+          repository = repo;
+          firebaseReady = true;
+        });
+        return;
+      } catch (_) {
+        // fallthrough
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      repository = InMemoryRepository();
+      firebaseReady = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      const HomeScreen(),
-      const CategoriesScreen(),
-      StudyHubScreen(repository: quizRepo),
+      HomeScreen(externalRepository: repository),
+      CategoriesScreen(externalRepository: repository),
+      StudyHubScreen(repository: repository),
       const ProfileScreen(),
     ];
     return Scaffold(

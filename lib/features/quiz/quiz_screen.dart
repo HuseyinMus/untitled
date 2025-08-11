@@ -12,7 +12,9 @@ enum QuizMode { multipleChoice, writing }
 
 class QuizScreen extends StatefulWidget {
   final Repository repository;
-  const QuizScreen({super.key, required this.repository});
+  final String? selectedCategory;
+  final String? selectedLevel;
+  const QuizScreen({super.key, required this.repository, this.selectedCategory, this.selectedLevel});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -30,7 +32,12 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
-    pool = List.of(widget.repository.catalog);
+    // Seçili kategori/level varsa filtrele
+    pool = widget.repository.catalog.where((w) {
+      if (widget.selectedCategory != null && !w.categories.contains(widget.selectedCategory)) return false;
+      if (widget.selectedLevel != null && (w.level ?? '') != widget.selectedLevel) return false;
+      return true;
+    }).toList(growable: true);
     pool.shuffle();
     _next(allowDialog: false);
   }

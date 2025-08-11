@@ -45,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   Text('Tekrarla & Öğren', style: Theme.of(context).textTheme.displaySmall?.copyWith(color: scheme.primary, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 8),
-                  Text('Giriş yap ve kelime hedeflerine başla', textAlign: TextAlign.center),
+                  
                   const SizedBox(height: 24),
                   TextField(controller: emailController, decoration: const InputDecoration(labelText: 'E-posta')), 
                   const SizedBox(height: 12),

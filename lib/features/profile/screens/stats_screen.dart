@@ -136,28 +136,33 @@ class _Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final correctH = height * correctRatio;
-    final wrongH = height - correctH;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          width: width,
-          height: wrongH,
-          decoration: BoxDecoration(
-            color: scheme.errorContainer,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+    // Yuvarlama kaynaklı taşmaları önlemek için güvenli yükseklik
+    final double safeHeight = (height - 2).clamp(0.0, height);
+    final double correctH = safeHeight * correctRatio;
+    final double wrongH = safeHeight - correctH;
+    return SizedBox(
+      height: safeHeight,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            width: width,
+            height: wrongH,
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+            ),
           ),
-        ),
-        Container(
-          width: width,
-          height: correctH,
-          decoration: BoxDecoration(
-            color: scheme.primary,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6)),
+          Container(
+            width: width,
+            height: correctH,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6)),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
