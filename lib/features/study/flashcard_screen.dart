@@ -6,6 +6,7 @@ import 'package:untitled/data/repositories/firebase_repository.dart';
 import 'package:untitled/data/repositories/stats_repository.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -25,11 +26,13 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   late final FlutterTts tts;
   bool ttsReady = false;
   String? ttsLanguage;
+  late final int initialTotal;
 
   @override
   void initState() {
     super.initState();
     queue = List<WordItem>.from(widget.initialQueue);
+    initialTotal = queue.length;
     tts = FlutterTts();
     _initTts();
   }
@@ -93,6 +96,9 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
         });
       } catch (_) {}
       setState(() => ttsReady = lang != null);
+      if (lang != null && queue.isNotEmpty && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrent());
+      }
     } catch (_) {
       setState(() => ttsReady = false);
     }
@@ -103,6 +109,7 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     final current = queue.first;
     final repo = widget.repository;
     try {
+      try { HapticFeedback.selectionClick(); } catch (_) {}
       if (repo is FirebaseRepository) {
         await repo.applyReviewAsync(current.id, grade);
       } else {
@@ -121,6 +128,9 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     });
     if (queue.isEmpty) {
       if (mounted) Navigator.of(context).pop();
+    }
+    if (mounted && queue.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrent());
     }
   }
 
@@ -186,7 +196,13 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${queue.length} kaldı'),
+                      Row(
+                        children: [
+                          Text('${initialTotal - queue.length}/${initialTotal}'),
+                          const SizedBox(width: 8),
+                          Text('${queue.length} kaldı'),
+                        ],
+                      ),
                       Row(
                         children: [
                           IconButton(
@@ -204,15 +220,47 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: initialTotal == 0 ? 0 : (initialTotal - queue.length) / initialTotal,
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => showBack = !showBack),
+                      onHorizontalDragEnd: (details) {
+                        final vx = details.primaryVelocity ?? 0;
+                        if (vx.abs() < 200) return; // çok küçük hareketleri yok say
+                        // sağa hızlı kaydır: Good, sola: Again
+                        if (vx > 0) {
+                          _answer(ReviewGrade.good);
+                        } else {
+                          _answer(ReviewGrade.again);
+                        }
+                      },
+                      onTap: () {
+                        setState(() => showBack = !showBack);
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrent());
+                      },
                       child: _GlassCard(
                         child: Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
+                              duration: const Duration(milliseconds: 260),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, anim) {
+                                return FadeTransition(
+                                  opacity: anim,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.92, end: 1.0).animate(anim),
+                                    child: child,
+                                  ),
+                                );
+                              },
                               child: showBack
                                   ? Column(
                                       key: const ValueKey('back'),
@@ -221,6 +269,12 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                                         Text(current.turkish, style: Theme.of(context).textTheme.headlineSmall, textAlign: TextAlign.center),
                                         const SizedBox(height: 12),
                                         Text(current.example, textAlign: TextAlign.center),
+                                        const SizedBox(height: 12),
+                                        _TagChips(
+                                          partOfSpeech: current.partOfSpeech,
+                                          level: current.level,
+                                          categories: current.categories,
+                                        ),
                                         if (current.mnemonic != null) ...[
                                           const SizedBox(height: 12),
                                           Text('Mnemonic: ${current.mnemonic!}', textAlign: TextAlign.center, style: const TextStyle(fontStyle: FontStyle.italic)),
@@ -236,21 +290,15 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (showBack)
-                    Row(
-                      children: [
-                        Expanded(child: OutlinedButton(onPressed: () => _answer(ReviewGrade.again), child: const Text('Again'))),
-                        const SizedBox(width: 8),
-                        Expanded(child: OutlinedButton(onPressed: () => _answer(ReviewGrade.hard), child: const Text('Hard'))),
-                        const SizedBox(width: 8),
-                        Expanded(child: ElevatedButton(onPressed: () => _answer(ReviewGrade.good), child: const Text('Good'))),
-                        const SizedBox(width: 8),
-                        Expanded(child: ElevatedButton(onPressed: () => _answer(ReviewGrade.easy), child: const Text('Easy'))),
-                      ],
-                    )
+                    _AnswerBar(onSelect: _answer)
                   else
-                    ElevatedButton(
-                      onPressed: () => setState(() => showBack = true),
-                      child: const Text('Cevabı Göster'),
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() => showBack = true);
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrent());
+                      },
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('Cevabı Göster'),
                     ),
                 ],
               ),
@@ -278,9 +326,109 @@ class _GlassCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         border: Border.all(color: scheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withOpacity(0.08),
+            blurRadius: 24,
+            spreadRadius: 2,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: child,
     );
+  }
+}
+
+
+class _AnswerBar extends StatelessWidget {
+  final void Function(ReviewGrade) onSelect;
+  const _AnswerBar({required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.tonal(
+            style: FilledButton.styleFrom(backgroundColor: scheme.errorContainer),
+            onPressed: () => onSelect(ReviewGrade.again),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [Icon(Icons.close_rounded, size: 16), SizedBox(width: 6), Text('Again')],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: FilledButton.tonal(
+            style: FilledButton.styleFrom(backgroundColor: scheme.tertiaryContainer),
+            onPressed: () => onSelect(ReviewGrade.hard),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [Icon(Icons.timer, size: 16), SizedBox(width: 6), Text('Hard')],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: FilledButton(
+            onPressed: () => onSelect(ReviewGrade.good),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [Icon(Icons.check_rounded, size: 16), SizedBox(width: 6), Text('Good')],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: scheme.primaryContainer),
+            onPressed: () => onSelect(ReviewGrade.easy),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [Icon(Icons.thumb_up_rounded, size: 16), SizedBox(width: 6), Text('Easy')],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TagChips extends StatelessWidget {
+  final String partOfSpeech;
+  final String? level;
+  final List<String> categories;
+  const _TagChips({required this.partOfSpeech, required this.level, required this.categories});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> chips = [];
+    if (partOfSpeech.isNotEmpty) {
+      chips.add(Chip(label: Text(partOfSpeech)));
+    }
+    if ((level ?? '').trim().isNotEmpty) {
+      chips.add(Chip(label: Text(level!.trim())));
+    }
+    for (final c in categories.take(3)) {
+      chips.add(Chip(label: Text(c)));
+    }
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: chips);
   }
 }
 

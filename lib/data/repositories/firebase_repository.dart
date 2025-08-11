@@ -30,24 +30,38 @@ class FirebaseRepository implements Repository {
   Future<void> loadCatalogOnce() async {
     if (_catalogCache.isNotEmpty) return;
     try {
-      final snap = await _db.collection('catalog_words').limit(500).get();
-      _catalogCache = snap.docs.map((d) {
-        final m = d.data();
-        return WordItem(
-          id: d.id,
-          english: m['en'] ?? '',
-          turkish: m['tr'] ?? '',
-          partOfSpeech: m['pos'] ?? '',
-          example: m['example'] ?? '',
-          imageUrl: m['imageUrl'],
-          audioUrl: m['audioUrl'],
-          mnemonic: m['mnemonic'],
-          categories: (m['categories'] is List)
-              ? List<String>.from(m['categories'] as List)
-              : const <String>[],
-          level: (m['level'] as String?)?.trim(),
-        );
-      }).toList(growable: false);
+      // Tüm katalogu sayfalayarak çek (500'lük partiler)
+      const int pageSize = 500;
+      final List<WordItem> all = <WordItem>[];
+      Query<Map<String, dynamic>> baseQuery =
+          _db.collection('catalog_words').orderBy(FieldPath.documentId).limit(pageSize);
+      DocumentSnapshot<Map<String, dynamic>>? lastDoc;
+      while (true) {
+        final Query<Map<String, dynamic>> q =
+            lastDoc == null ? baseQuery : baseQuery.startAfterDocument(lastDoc);
+        final snap = await q.get();
+        if (snap.docs.isEmpty) break;
+        for (final d in snap.docs) {
+          final m = d.data();
+          all.add(WordItem(
+            id: d.id,
+            english: m['en'] ?? '',
+            turkish: m['tr'] ?? '',
+            partOfSpeech: m['pos'] ?? '',
+            example: m['example'] ?? '',
+            imageUrl: m['imageUrl'],
+            audioUrl: m['audioUrl'],
+            mnemonic: m['mnemonic'],
+            categories: (m['categories'] is List)
+                ? List<String>.from(m['categories'] as List)
+                : const <String>[],
+            level: (m['level'] as String?)?.trim(),
+          ));
+        }
+        lastDoc = snap.docs.last;
+        if (snap.docs.length < pageSize) break; // son sayfa
+      }
+      _catalogCache = all;
     } on FirebaseException {
       _catalogCache = const <WordItem>[];
     }

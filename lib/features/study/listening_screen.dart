@@ -28,6 +28,14 @@ class _ListeningScreenState extends State<ListeningScreen> {
   }
 
   @override
+  void dispose() {
+    try {
+      tts.stop();
+    } catch (_) {}
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final items = widget.repository.catalog.where((w) {
       if (widget.selectedCategory != null && !w.categories.contains(widget.selectedCategory)) return false;

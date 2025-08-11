@@ -127,23 +127,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!firebaseReady)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        'Offline mod (Firebase bağlı değil) — in-memory katalog kullanılıyor',
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Offline mod (Firebase bağlı değil) — in-memory katalog kullanılıyor',
+                              style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: _setupFirebase,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Yeniden Bağlan'),
+                          ),
+                        ],
                       ),
                     ),
                   _HeaderCard(
                     dueCount: dueCache.length,
-                    onStart: dueCache.isEmpty
-                        ? null
-                        : () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => FlashcardScreen(repository: repository, initialQueue: List.from(dueCache)),
-                              ),
-                            );
-                            await _refreshDue();
-                          },
+                    onStart: () async {
+                      final List<WordItem> listToStudy = dueCache.isNotEmpty
+                          ? List<WordItem>.from(dueCache)
+                          : repository.catalog.take(dailyGoal).toList();
+                      if (listToStudy.isEmpty) return;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => FlashcardScreen(
+                            repository: repository,
+                            initialQueue: listToStudy,
+                          ),
+                        ),
+                      );
+                      await _refreshDue();
+                    },
                     onViewDue: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute(
