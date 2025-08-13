@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled/features/auth/screens/register_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -54,6 +56,40 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (error != null) Text(error!, style: TextStyle(color: scheme.error)),
                   const SizedBox(height: 12),
                   ElevatedButton(onPressed: loading ? null : _login, child: Text(loading ? 'Bekleyin...' : 'Giriş Yap')),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.login),
+                    onPressed: loading ? null : () async {
+                      setState(() { loading = true; error = null; });
+                      try {
+                        final googleUser = await GoogleSignIn().signIn();
+                        if (googleUser == null) { setState(() { loading = false; }); return; }
+                        final googleAuth = await googleUser.authentication;
+                        final credential = GoogleAuthProvider.credential(
+                          accessToken: googleAuth.accessToken,
+                          idToken: googleAuth.idToken,
+                        );
+                        final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+                        // İlk girişte Firestore profilini hazırla
+                        final uid = userCred.user!.uid;
+                        final doc = FirebaseFirestore.instance.collection('users').doc(uid);
+                        await doc.set({
+                          'displayName': userCred.user!.displayName,
+                          'email': userCred.user!.email,
+                          'photoUrl': userCred.user!.photoURL,
+                          'createdAt': FieldValue.serverTimestamp(),
+                        }, SetOptions(merge: true));
+                      } on FirebaseAuthException catch (e) {
+                        final msg = (e.code == 'sign_in_failed' || e.code == 'account-exists-with-different-credential')
+                            ? 'Google girişi yapılandırması eksik veya eşleşmiyor (SHA-1/SHA-256, paket adı). Lütfen Firebase projesinde Android uygulamanız için parmak izlerini ekleyip google-services.json dosyasını uygulamaya koyun ve tekrar deneyin.'
+                            : (e.message ?? 'Google girişi başarısız.');
+                        setState(() { error = msg; });
+                      } finally {
+                        if (mounted) setState(() { loading = false; });
+                      }
+                    },
+                    label: const Text('Google ile Giriş Yap'),
+                  ),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RegisterScreen())),

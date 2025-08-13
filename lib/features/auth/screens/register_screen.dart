@@ -11,6 +11,9 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
   bool loading = false;
   String? error;
 
@@ -21,6 +24,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: emailController.text.trim(),
         password: passwordController.text,
       );
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await user.updateDisplayName('${firstNameController.text.trim()} ${lastNameController.text.trim()}'.trim());
+        // Basit profil başlangıcı
+      }
       if (mounted) Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       setState(() { error = e.message; });
@@ -44,6 +52,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  TextField(controller: firstNameController, decoration: const InputDecoration(labelText: 'Ad')), 
+                  const SizedBox(height: 12),
+                  TextField(controller: lastNameController, decoration: const InputDecoration(labelText: 'Soyad')), 
+                  const SizedBox(height: 12),
+                  TextField(controller: usernameController, decoration: const InputDecoration(labelText: 'Kullanıcı adı (opsiyonel)')), 
+                  const SizedBox(height: 12),
                   TextField(controller: emailController, decoration: const InputDecoration(labelText: 'E-posta')), 
                   const SizedBox(height: 12),
                   TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')),

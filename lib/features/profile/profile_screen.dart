@@ -8,6 +8,8 @@ import 'package:untitled/features/profile/screens/leaderboard_screen.dart';
 import 'package:untitled/features/profile/widgets/avatar_picker.dart';
 import 'package:untitled/core/firebase/admin_config.dart';
 import 'package:untitled/features/profile/screens/admin_panel_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:untitled/features/auth/screens/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -303,8 +305,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         leading: const Icon(Icons.logout),
                         title: const Text('Çıkış Yap'),
                         onTap: () async {
+                          try {
+                            // Google oturumu varsa kapat
+                            final g = GoogleSignIn();
+                            if (await g.isSignedIn()) {
+                              await g.disconnect().catchError((_){});
+                              await g.signOut().catchError((_){});
+                            }
+                          } catch (_) {}
                           await FirebaseAuth.instance.signOut();
-                          if (mounted) Navigator.of(context).pop();
+                          if (!mounted) return;
+                          // Tüm route'ları temizleyip giriş ekranına dön
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
                         },
                       ),
                     ],

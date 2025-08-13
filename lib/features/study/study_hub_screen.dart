@@ -87,6 +87,7 @@ class StudyHubScreen extends StatelessWidget {
                               ),
                             ),
                   ),
+                  // Speaking v1'de devre dışı
                 ],
               ),
             ),
@@ -136,5 +137,7 @@ class _ModeTile extends StatelessWidget {
     );
   }
 }
+
+// Speaking ekranı v1 için kaldırıldı
 
 

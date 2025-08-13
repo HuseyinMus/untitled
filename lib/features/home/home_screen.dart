@@ -11,6 +11,7 @@ import 'package:untitled/features/quiz/quiz_screen.dart';
 import 'package:untitled/features/study/listening_screen.dart';
 import 'package:untitled/features/home/widgets/catalog_screen.dart';
 import 'package:untitled/features/home/widgets/placement_test_screen.dart';
+import 'package:untitled/features/home/widgets/banner_ad_widget.dart';
 import 'package:untitled/features/study/due_words_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -251,6 +252,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                 ],
               ),
+            ),
+          ),
+          // Banner'ı sayfanın en altında sabitleyelim
+          SliverFillRemaining(
+            hasScrollBody: false,
+            fillOverscroll: true,
+            child: Column(
+              children: const [
+                Spacer(),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: BannerAdWidget(),
+                ),
+              ],
             ),
           ),
           SliverList.separated(

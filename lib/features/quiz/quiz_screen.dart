@@ -1,12 +1,15 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:untitled/data/models/word.dart';
 import 'package:untitled/data/repositories/repository.dart';
 import 'package:untitled/data/repositories/firebase_repository.dart';
 import 'package:untitled/core/srs/srs.dart';
 import 'package:untitled/data/repositories/stats_repository.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:untitled/ads/ads_service.dart';
 
 enum QuizMode { multipleChoice, writing }
 
@@ -28,6 +31,9 @@ class _QuizScreenState extends State<QuizScreen> {
   WordItem? correct;
   QuizMode mode = QuizMode.multipleChoice;
   final TextEditingController answerController = TextEditingController();
+  InterstitialAd? _interstitial;
+  int _answersSinceAd = 0;
+  int _adsShown = 0;
 
   @override
   void initState() {
@@ -40,6 +46,7 @@ class _QuizScreenState extends State<QuizScreen> {
     }).toList(growable: true);
     pool.shuffle();
     _next(allowDialog: false);
+    _loadInterstitial();
   }
 
   void _next({bool allowDialog = true}) {
@@ -74,6 +81,54 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {});
   }
 
+  Future<void> _loadInterstitial() async {
+    await AdsService.init();
+    InterstitialAd.load(
+      adUnitId: AdsService.interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _interstitial = ad;
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdShowedFullScreenContent: (ad) async {
+              try {
+                await FirebaseAnalytics.instance.logEvent(name: 'ad_shown', parameters: {'type': 'interstitial'});
+              } catch (_) {}
+            },
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _interstitial = null;
+              _loadInterstitial();
+            },
+            onAdFailedToShowFullScreenContent: (ad, err) async {
+              try {
+                await FirebaseAnalytics.instance.logEvent(name: 'ad_failed_to_show', parameters: {'type': 'interstitial', 'code': err.code});
+              } catch (_) {}
+              ad.dispose();
+              _interstitial = null;
+              _loadInterstitial();
+            },
+          );
+        },
+        onAdFailedToLoad: (_) => _interstitial = null,
+      ),
+    );
+  }
+
+  void _maybeShowAd({required bool onlyOnCorrect, required bool isCorrect}) {
+    // Sadece doğru cevaplarda tetiklemek istiyorsak ve yanlışsa çık
+    if (onlyOnCorrect && !isCorrect) return;
+    _answersSinceAd += 1;
+    final canShow = _interstitial != null && _adsShown < 8 && _answersSinceAd >= 3;
+    if (canShow) {
+      _answersSinceAd = 0;
+      _adsShown += 1;
+      _interstitial!.show();
+      _interstitial = null;
+      _loadInterstitial();
+    }
+  }
+
   Future<void> _answer(WordItem selected) async {
     if (correct == null) return;
     final isCorrect = selected.id == correct!.id;
@@ -102,6 +157,7 @@ class _QuizScreenState extends State<QuizScreen> {
       });
     } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isCorrect ? 'Doğru! +10' : 'Yanlış')));
+    _maybeShowAd(onlyOnCorrect: true, isCorrect: isCorrect);
     _next();
   }
 
@@ -125,6 +181,7 @@ class _QuizScreenState extends State<QuizScreen> {
         'correct': isCorrect,
       });
     } catch (_) {}
+    _maybeShowAd(onlyOnCorrect: true, isCorrect: isCorrect);
     _next();
   }
 
@@ -137,23 +194,44 @@ class _QuizScreenState extends State<QuizScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Quiz')),
+      appBar: AppBar(
+        title: const Text('Quiz'),
+        actions: [
+          if (kDebugMode)
+            IconButton(
+              tooltip: 'Ad Inspector',
+              icon: const Icon(Icons.bug_report_outlined),
+              onPressed: () {
+                MobileAds.instance.openAdInspector((error) {
+                  if (!mounted) return;
+                  final msg = error == null ? 'Ad Inspector açıldı' : 'Ad Inspector hata: ${error.message ?? error.toString()}';
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                });
+              },
+            ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Puan: $score'),
-                SegmentedButton<QuizMode>(
-                  segments: const [
-                    ButtonSegment(value: QuizMode.multipleChoice, label: Text('Çoktan Seçmeli'), icon: Icon(Icons.list)),
-                    ButtonSegment(value: QuizMode.writing, label: Text('Yazma'), icon: Icon(Icons.edit)),
-                  ],
-                  selected: {mode},
-                  onSelectionChanged: (s) => setState(() => mode = s.first),
+                const Spacer(),
+                Flexible(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<QuizMode>(
+                      segments: const [
+                        ButtonSegment(value: QuizMode.multipleChoice, label: Text('Çoktan Seçmeli'), icon: Icon(Icons.list)),
+                        ButtonSegment(value: QuizMode.writing, label: Text('Yazma'), icon: Icon(Icons.edit)),
+                      ],
+                      selected: {mode},
+                      onSelectionChanged: (s) => setState(() => mode = s.first),
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -98,7 +98,25 @@ class StatsRepository {
     try {
       if (_auth.currentUser == null) return {};
       final doc = await _db.collection('users').doc(_uid).collection('stats').doc('summary').get();
-      return doc.data() ?? {};
+      final data = doc.data() ?? {};
+      // aggregate totals for UI (defensive defaults)
+      final daily = await _db
+          .collection('users').doc(_uid)
+          .collection('stats').doc('daily').collection('days')
+          .orderBy('date', descending: true).limit(30).get();
+      int correct = 0, wrong = 0, studied = 0;
+      for (final d in daily.docs) {
+        final m = d.data();
+        correct += (m['correct'] as num?)?.toInt() ?? 0;
+        wrong   += (m['wrong'] as num?)?.toInt() ?? 0;
+        studied += (m['studied'] as num?)?.toInt() ?? 0;
+      }
+      return {
+        ...data,
+        'correct30': correct,
+        'wrong30': wrong,
+        'studied30': studied,
+      };
     } catch (_) {
       return {};
     }

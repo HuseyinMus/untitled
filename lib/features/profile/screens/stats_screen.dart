@@ -14,6 +14,11 @@ class StatsScreen extends StatelessWidget {
           final summary = snap.data ?? {};
           final xp = (summary['xp'] as num?)?.toInt() ?? 0;
           final streak = (summary['streak'] as num?)?.toInt() ?? 0;
+          final correct30 = (summary['correct30'] as num?)?.toInt() ?? 0;
+          final wrong30 = (summary['wrong30'] as num?)?.toInt() ?? 0;
+          final studied30 = (summary['studied30'] as num?)?.toInt() ?? 0;
+          final total30 = correct30 + wrong30;
+          final accuracy = total30 == 0 ? 0 : ((correct30 / total30) * 100).round();
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -31,6 +36,54 @@ class StatsScreen extends StatelessWidget {
                   title: const Text('Seri (gün)'),
                   trailing: Text('$streak'),
                 ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            const Text('Son 30 Gün'),
+                            const SizedBox(height: 6),
+                            Text('Doğru: $correct30'),
+                            Text('Yanlış: $wrong30'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            const Text('Çalışma Sayısı'),
+                            const SizedBox(height: 6),
+                            Text('$studied30'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            const Text('Doğruluk'),
+                            const SizedBox(height: 6),
+                            Text('%$accuracy'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               FutureBuilder<List<Map<String, dynamic>>>(
@@ -136,8 +189,8 @@ class _Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Yuvarlama kaynaklı taşmaları önlemek için güvenli yükseklik
-    final double safeHeight = (height - 2).clamp(0.0, height);
+    // Yuvarlama kaynaklı alt taşmaları önlemek için biraz daha güvenli yükseklik
+    final double safeHeight = (height - 4).clamp(0.0, height);
     final double correctH = safeHeight * correctRatio;
     final double wrongH = safeHeight - correctH;
     return SizedBox(
