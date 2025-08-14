@@ -13,6 +13,7 @@ import 'package:untitled/features/home/widgets/catalog_screen.dart';
 import 'package:untitled/features/home/widgets/placement_test_screen.dart';
 import 'package:untitled/features/home/widgets/banner_ad_widget.dart';
 import 'package:untitled/features/study/due_words_screen.dart';
+import 'package:untitled/data/repositories/stats_repository.dart';
 
 class HomeScreen extends StatefulWidget {
   final Repository? externalRepository;
@@ -248,37 +249,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }),
                   const SizedBox(height: 16),
-                  Text('Katalog (örnek)', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
+                  _DailySummaryCard(),
                 ],
               ),
             ),
           ),
-          // Banner'ı sayfanın en altında sabitleyelim
-          SliverFillRemaining(
-            hasScrollBody: false,
-            fillOverscroll: true,
-            child: Column(
-              children: const [
-                Spacer(),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: BannerAdWidget(),
-                ),
-              ],
-            ),
-          ),
-          SliverList.separated(
-            itemCount: repository.catalog.length,
-            itemBuilder: (_, i) {
-              final w = repository.catalog[i];
-              return ListTile(
-                title: Text(w.english),
-                subtitle: Text('${w.turkish} • ${w.partOfSpeech}'),
-              );
-            },
-            separatorBuilder: (_, __) => const Divider(height: 1),
-          ),
+          // Altta ekstra liste kaldırıldı; banner artık ShellScreen.bottomSheet'te sabit
         ],
       ),
     );
@@ -645,6 +621,67 @@ class _FeaturedCategoriesState extends State<_FeaturedCategories> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _DailySummaryCard extends StatefulWidget {
+  @override
+  State<_DailySummaryCard> createState() => _DailySummaryCardState();
+}
+
+class _DailySummaryCardState extends State<_DailySummaryCard> {
+  Map<String, dynamic>? _summary;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await StatsRepository.getSummary();
+      if (!mounted) return;
+      setState(() {
+        _summary = data;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Card(child: Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()));
+    }
+    final xp = (_summary?['xp'] as num?)?.toInt() ?? 0;
+    final streak = (_summary?['streak'] as num?)?.toInt() ?? 0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.analytics_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Günün Özeti', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text('XP: $xp • Seri: $streak gün'),
+                ],
+              ),
+            ),
+            TextButton(onPressed: _load, child: const Text('Yenile')),
+          ],
+        ),
       ),
     );
   }

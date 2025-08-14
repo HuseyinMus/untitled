@@ -10,6 +10,7 @@ import 'package:untitled/core/firebase/admin_config.dart';
 import 'package:untitled/features/profile/screens/admin_panel_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:untitled/features/auth/screens/login_screen.dart';
+import 'package:untitled/data/repositories/profile_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,6 +22,9 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String? displayName;
   String? photoUrl;
+  String? username;
+  String? firstName;
+  String? lastName;
 
   @override
   void initState() {
@@ -28,6 +32,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = FirebaseAuth.instance.currentUser;
     displayName = user?.displayName ?? user?.email ?? 'Misafir';
     photoUrl = user?.photoURL;
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final p = await ProfileRepository.getProfile(user.uid);
+    setState(() {
+      username = p['username'] as String?;
+      firstName = p['firstName'] as String?;
+      lastName = p['lastName'] as String?;
+    });
   }
 
   Future<_ProfileStats> _loadStats() async {
@@ -201,6 +217,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               TextButton(onPressed: _changeDisplayName, child: const Text('Düzenle')),
                             ],
                           ),
+                          if (username != null && username!.isNotEmpty)
+                            Text('@$username', style: Theme.of(context).textTheme.bodySmall),
                           Text('UID: ${user?.uid ?? '-'}', style: Theme.of(context).textTheme.labelSmall),
                         ],
                       ),
@@ -299,6 +317,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         leading: const Icon(Icons.lock_reset),
                         title: const Text('Parola Değiştir'),
                         onTap: _resetPassword,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.alternate_email_outlined),
+                        title: const Text('Kullanıcı adı değiştir'),
+                        onTap: () async {
+                          final ctrl = TextEditingController(text: username ?? '');
+                          final newU = await showDialog<String>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('Kullanıcı adı'),
+                              content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'username')),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+                                ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Kaydet')),
+                              ],
+                            ),
+                          );
+                          if (newU != null && newU.isNotEmpty) {
+                            try {
+                              final uid = FirebaseAuth.instance.currentUser!.uid;
+                              await ProfileRepository.changeUsername(uid: uid, newUsername: newU);
+                              setState(() => username = newU);
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı adı güncellendi.')));
+                            } catch (_) {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu kullanıcı adı alınmış.')));
+                            }
+                          }
+                        },
                       ),
                       const Divider(height: 1),
                       ListTile(

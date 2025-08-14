@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:untitled/data/repositories/profile_repository.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -27,7 +29,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await user.updateDisplayName('${firstNameController.text.trim()} ${lastNameController.text.trim()}'.trim());
-        // Basit profil başlangıcı
+        try {
+          await ProfileRepository.upsertProfile(
+            uid: user.uid,
+            firstName: firstNameController.text,
+            lastName: lastNameController.text,
+            username: usernameController.text.isEmpty ? null : usernameController.text,
+          );
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'displayName': user.displayName,
+            'email': user.email,
+            'createdAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } on Exception catch (e) {
+          if (e.toString().contains('username_taken')) {
+            setState(() { error = 'Bu kullanıcı adı alınmış. Lütfen başka bir kullanıcı adı deneyin.'; });
+            return;
+          }
+        }
       }
       if (mounted) Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {

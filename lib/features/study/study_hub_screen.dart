@@ -3,6 +3,7 @@ import 'package:untitled/data/repositories/repository.dart';
 import 'package:untitled/features/quiz/quiz_screen.dart';
 import 'package:untitled/features/study/flashcard_screen.dart';
 import 'package:untitled/features/study/listening_screen.dart';
+  import 'package:untitled/features/study/tutor_session_screen.dart';
 import 'package:untitled/state/app_state.dart';
 
 class StudyHubScreen extends StatelessWidget {
@@ -46,6 +47,20 @@ class StudyHubScreen extends StatelessWidget {
                 mainAxisSpacing: 8,
                 childAspectRatio: 1.1,
                 children: [
+                  _ModeTile(
+                    icon: Icons.auto_awesome,
+                    label: 'Eğitmen (4 Adım)',
+                    onTap: items.isEmpty
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => TutorSessionScreen(
+                                  repository: repository,
+                                  initialQueue: items,
+                                ),
+                              ),
+                            ),
+                  ),
                   _ModeTile(
                     icon: Icons.style,
                     label: 'Flashcard',

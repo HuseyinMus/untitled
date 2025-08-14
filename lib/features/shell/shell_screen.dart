@@ -9,6 +9,7 @@ import 'package:untitled/core/firebase/firebase_initializer.dart';
 import 'package:untitled/data/repositories/firebase_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:untitled/features/home/widgets/banner_ad_widget.dart';
 
 class ShellScreen extends StatefulWidget {
   const ShellScreen({super.key});
@@ -66,15 +67,27 @@ class _ShellScreenState extends State<ShellScreen> {
     ];
     return Scaffold(
       body: pages[index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Ana'),
-          NavigationDestination(icon: Icon(Icons.category_outlined), selectedIcon: Icon(Icons.category), label: 'Kategoriler'),
-          NavigationDestination(icon: Icon(Icons.school_outlined), selectedIcon: Icon(Icons.school), label: 'Çalış'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profil'),
-        ],
-        onDestinationSelected: (i) => setState(() => index = i),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            NavigationBar(
+              selectedIndex: index,
+              destinations: const [
+                NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Ana'),
+                NavigationDestination(icon: Icon(Icons.category_outlined), selectedIcon: Icon(Icons.category), label: 'Kategoriler'),
+                NavigationDestination(icon: Icon(Icons.school_outlined), selectedIcon: Icon(Icons.school), label: 'Çalış'),
+                NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profil'),
+              ],
+              onDestinationSelected: (i) => setState(() => index = i),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: BannerAdWidget(),
+            ),
+          ],
+        ),
       ),
     );
   }
